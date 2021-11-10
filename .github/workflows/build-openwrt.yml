@@ -26,11 +26,12 @@ env:
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: true
+  UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_COWTRANSFER: false
   UPLOAD_WETRANSFER: false
   UPLOAD_RELEASE: false
+  UPLOAD_CONFIG: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -89,21 +90,16 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
     
-    - name: Upload bin directory
-      uses: actions/upload-artifact@main
-      #if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      if: env.UPLOAD_BIN_DIR == 'true'
-      with:
-        name: OpenWrt_bin
-        path: openwrt/bin
-    
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@main
-      #if: steps.organize.outputs.status == 'success' && !cancelled()
-      if: env.UPLOAD_BIN_DIR == 'true'
+    - name: copy config
+      if: env.UPLOAD_CONFIG == 'true'
+      run: cd openwrt && sudo mkdir config_dir && sudo cp .config config_dir/
+      
+    - name: Upload config_dir directory
+      uses: actions/upload-artifact@main      
+      if: env.UPLOAD_CONFIG == 'true'
       with:
         name: OpenWrt_config
-        path: openwrt/.config
+        path: openwrt/config_dir
 
     - name: Download package
       id: package
@@ -131,16 +127,14 @@ jobs:
 
     - name: Upload bin directory
       uses: actions/upload-artifact@main
-      #if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      if: env.UPLOAD_BIN_DIR == 'true'
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
     - name: Organize files
       id: organize
-      #if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-      if: env.UPLOAD_BIN_DIR == 'true'
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf packages
@@ -149,8 +143,7 @@ jobs:
 
     - name: Upload firmware directory
       uses: actions/upload-artifact@main
-      #if: steps.organize.outputs.status == 'success' && !cancelled()
-      if: env.UPLOAD_BIN_DIR == 'true'
+      if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
